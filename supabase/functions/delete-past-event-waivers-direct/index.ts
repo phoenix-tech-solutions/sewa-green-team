@@ -13,7 +13,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     console.log("Starting direct waiver cleanup...");
-    
+
     // Query events directly instead of using the view
     const { data: expiredEvents, error: eventsErr } = await supabaseAdmin
       .from("events")
@@ -30,7 +30,11 @@ Deno.serve(async (req: Request) => {
 
     if (!expiredEvents || expiredEvents.length === 0) {
       console.log("No expired events with waivers found");
-      return createCORSResponse({ cleaned: 0, total: 0, message: "No expired events with waivers found" });
+      return createCORSResponse({
+        cleaned: 0,
+        total: 0,
+        message: "No expired events with waivers found",
+      });
     }
 
     console.log(`Found ${expiredEvents.length} expired event(s) with waivers`);
@@ -46,24 +50,30 @@ Deno.serve(async (req: Request) => {
 
     if (storageErr) {
       console.error("Storage list error:", storageErr);
-      return createCORSResponse({ error: `Storage error: ${storageErr.message}` }, { status: 500 });
+      return createCORSResponse({
+        error: `Storage error: ${storageErr.message}`,
+      }, { status: 500 });
     }
 
     console.log(`Found ${waiverFiles?.length || 0} waiver files in storage`);
 
     // Create a map of waiver_id to file name
     const waiverMap = new Map();
-    waiverFiles?.forEach(file => {
+    waiverFiles?.forEach((file) => {
       waiverMap.set(file.id, file.name);
     });
 
     for (const event of expiredEvents) {
-      console.log(`Processing event ${event.id} with waiver_id: ${event.waiver_id}`);
-      
+      console.log(
+        `Processing event ${event.id} with waiver_id: ${event.waiver_id}`,
+      );
+
       const fileName = waiverMap.get(event.waiver_id);
       if (!fileName) {
         console.warn(`No file found for waiver_id: ${event.waiver_id}`);
-        errors.push(`No file found for waiver_id: ${event.waiver_id} (event: ${event.id})`);
+        errors.push(
+          `No file found for waiver_id: ${event.waiver_id} (event: ${event.id})`,
+        );
         continue;
       }
 
@@ -76,16 +86,21 @@ Deno.serve(async (req: Request) => {
       if (!delErr) {
         cleaned++;
         console.log(`Successfully deleted waiver: waivers/${fileName}`);
-        
+
         // Update the event to remove waiver_id reference
         const { error: updateErr } = await supabaseAdmin
           .from("events")
           .update({ waiver_id: null })
           .eq("id", event.id);
-          
+
         if (updateErr) {
-          console.warn(`Failed to update event ${event.id}:`, updateErr.message);
-          errors.push(`Failed to update event ${event.id}: ${updateErr.message}`);
+          console.warn(
+            `Failed to update event ${event.id}:`,
+            updateErr.message,
+          );
+          errors.push(
+            `Failed to update event ${event.id}: ${updateErr.message}`,
+          );
         } else {
           console.log(`Updated event ${event.id} to remove waiver_id`);
         }
@@ -95,20 +110,19 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const result = { 
-      cleaned, 
-      total: expiredEvents.length, 
-      errors: errors.length > 0 ? errors : undefined 
+    const result = {
+      cleaned,
+      total: expiredEvents.length,
+      errors: errors.length > 0 ? errors : undefined,
     };
-    
+
     console.log("Direct cleanup completed:", result);
     return createCORSResponse(result);
-    
   } catch (error) {
     console.error("Unexpected error in direct waiver cleanup:", error);
-    return createCORSResponse({ 
-      error: "Internal server error", 
-      details: error instanceof Error ? error.message : "Unknown error" 
+    return createCORSResponse({
+      error: "Internal server error",
+      details: error instanceof Error ? error.message : "Unknown error",
     }, { status: 500 });
   }
 });

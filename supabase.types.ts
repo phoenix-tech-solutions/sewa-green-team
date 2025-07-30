@@ -292,6 +292,15 @@ export type Database = {
           image_url: string
         }[]
       }
+      get_expired_waivers: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          event_id: string
+          waiver_id: string
+          bucket_id: string
+          waiver_path: string
+        }[]
+      }
       http: {
         Args: { request: Database["public"]["CompositeTypes"]["http_request"] }
         Returns: Database["public"]["CompositeTypes"]["http_response"]

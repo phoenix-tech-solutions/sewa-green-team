@@ -15,16 +15,12 @@ Deno.serve(async (req: Request) => {
     console.log("Starting waiver cleanup...");
 
     // Fetch expired events with waiver path via the view
-    const { data: items, error: viewErr } = await supabaseAdmin
-      .from("event_waivers")
-      .select("event_id, bucket_id, waiver_path, waiver_id, date")
-      .lt("date", new Date().toISOString());
+    const { data: items, error: rpcErr } = await supabaseAdmin
+      .rpc("get_expired_waivers");
 
-    console.log("View query result:", { items, viewErr });
-
-    if (viewErr) {
-      console.error("View error:", viewErr);
-      return createCORSResponse({ error: viewErr.message }, { status: 500 });
+    if (rpcErr) {
+      console.error("RPC error:", rpcErr.message);
+      return createCORSResponse({ error: rpcErr.message }, { status: 500 });
     }
 
     if (!items || items.length === 0) {
@@ -54,10 +50,12 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
+      console.log(item.waiver_path);
+
       const { error: delErr } = await supabaseAdmin
         .storage
-        .from(item.bucket_id)
-        .remove([item.waiver_path]);
+        .from("events")
+        .remove([item.waiver_path.replace("\n", "")]);
 
       if (!delErr) {
         cleaned++;
