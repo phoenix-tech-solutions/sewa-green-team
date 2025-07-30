@@ -4,7 +4,7 @@ import { useAuth } from "~/context/auth/AuthContext";
 import { supabase } from "~/lib/supabase";
 
 export const useAuthRedirect = () => {
-  const { user, session } = useAuth();
+  const { user, session, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -14,33 +14,46 @@ export const useAuthRedirect = () => {
 
     if (!protectedRoutes.includes(pathname)) return;
 
-    // If auth isn't ready yet, skip redirect
-    if (session === undefined) return;
+    // If auth is still loading, don't redirect yet
+    if (loading) return;
 
     (async () => {
       if (!user) {
         return pathname !== "/not-allowed" && navigate("/not-allowed");
       }
 
-      // Fetch user's status from DB
-      const { data: userRecord, error } = await fetchStatus(user.id);
+      // Fetch user's status and role from DB
+      const { data: userRecord, error } = await fetchUserDetails(user.id);
       if (error || !userRecord) {
         console.error("User lookup failed:", error?.message);
         return pathname !== "/not-allowed" && navigate("/not-allowed");
       }
 
-      if (userRecord.status === "APPROVED") {
-        if (pathname === "/not-approved") navigate("/dashboard");
-      } else {
-        if (pathname !== "/not-approved") navigate("/not-approved");
+      // Check if user is approved
+      if (userRecord.status !== "APPROVED") {
+        return pathname !== "/not-approved" && navigate("/not-approved");
+      }
+
+      // Check admin access for /admin route
+      if (pathname === "/admin" && userRecord.role !== "ADMIN") {
+        return navigate("/not-allowed");
+      }
+
+      // If user is approved and on not-approved page, redirect to dashboard
+      if (pathname === "/not-approved") {
+        navigate("/dashboard");
       }
     })();
-  }, [user, session, location, location.pathname, navigate]);
+  }, [user, session, loading, location, location.pathname, navigate]);
 };
 
-// Helper to fetch status
-async function fetchStatus(userId: string) {
-  const { data, error } = await supabase.from("users").select("status").eq("id", userId).single();
+// Helper to fetch user details
+async function fetchUserDetails(userId: string) {
+  const { data, error } = await supabase
+    .from("users")
+    .select("status, role")
+    .eq("id", userId)
+    .single();
 
   return { data, error };
 }

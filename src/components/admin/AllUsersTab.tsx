@@ -1,4 +1,9 @@
-import { ChevronDown, ChevronUp, Copy } from "lucide-react";
+import { motion } from "framer-motion";
+import FilterSelect from "~/components/ui/FilterSelect";
+import StatusBadge from "~/components/ui/StatusBadge";
+import ExpandableCard from "~/components/ui/ExpandableCard";
+import CopyButton from "~/components/ui/CopyButton";
+import { cardVariants, containerVariants } from "~/constants/animations";
 import type { AllUsersTabProps } from "~/types";
 
 const AllUsersTab = ({
@@ -16,117 +21,109 @@ const AllUsersTab = ({
   generateBulkList,
 }: AllUsersTabProps) => (
   <>
-    <div className="max-w-md mx-auto mb-6 flex flex-wrap justify-center gap-6">
-      <div className="flex flex-col items-start gap-1">
-        <label htmlFor="user-role-filter" className="font-semibold text-gray-700">
-          Filter by Role:
-        </label>
-        <select
+    <div className="mb-8">
+      <h2 className="text-2xl sm:text-3xl font-extrabold text-[#6b7547] text-center mb-8 drop-shadow-sm">
+        All Users
+      </h2>
+      <div className="max-w-2xl mx-auto flex flex-wrap justify-center gap-6">
+        <FilterSelect
           id="user-role-filter"
+          label="Filter by Role"
           value={userRoleFilter}
-          onChange={(e) => setUserRoleFilter(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-1 w-40"
-          aria-label="Filter users by role"
-        >
-          {roles.map((r: string) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="flex flex-col items-start gap-1">
-        <label htmlFor="user-status-filter" className="font-semibold text-gray-700">
-          Filter by Status:
-        </label>
-        <select
+          onChange={setUserRoleFilter}
+          options={roles}
+          ariaLabel="Filter users by role"
+        />
+        <FilterSelect
           id="user-status-filter"
+          label="Filter by Status"
           value={userStatusFilter}
-          onChange={(e) => setUserStatusFilter(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-1 w-40"
-          aria-label="Filter users by status"
-        >
-          {statusOptions.map((s: string) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+          onChange={setUserStatusFilter}
+          options={statusOptions}
+          ariaLabel="Filter users by status"
+        />
       </div>
     </div>
     <section className="max-w-5xl mx-auto space-y-4">
-      <div className="flex flex-wrap gap-4 justify-center mb-6">
-        <button
-          type="button"
-          className="flex items-center gap-2 bg-[#8a9663] text-white px-4 py-2 rounded-full hover:bg-[#707845]"
+      <div className="flex flex-wrap gap-4 justify-center mb-8">
+        <CopyButton
           onClick={() => copyToClipboard(generateBulkList("email"))}
+          variant="primary"
           title="Copy all filtered user emails"
-          aria-label="Copy all filtered user emails to clipboard"
+          ariaLabel="Copy all filtered user emails to clipboard"
         >
-          Copy Emails <Copy size={16} />
-        </button>
-        <button
-          type="button"
-          className="flex items-center gap-2 bg-[#4b5243] text-white px-4 py-2 rounded-full hover:bg-[#373c2a]"
+          Copy Emails
+        </CopyButton>
+        <CopyButton
           onClick={() => copyToClipboard(generateBulkList("phone"))}
+          variant="secondary"
           title="Copy all filtered user phone numbers"
-          aria-label="Copy all filtered user phone numbers to clipboard"
+          ariaLabel="Copy all filtered user phone numbers to clipboard"
         >
-          Copy Phone Numbers <Copy size={16} />
-        </button>
+          Copy Phone Numbers
+        </CopyButton>
       </div>
-      {filterUsers(allUsers, userRoleFilter, userStatusFilter).length === 0 ? (
-        <p className="text-center text-gray-600">No users found.</p>
-      ) : (
-        filterUsers(allUsers, userRoleFilter, userStatusFilter).map((user) => (
-          <div key={user.id} className="p-6 bg-white border rounded-xl shadow-sm">
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="font-semibold text-lg">{user.full_name}</div>
-                <div className="text-sm text-gray-600">
-                  <p>Email: {user.email}</p>
-                  <p>Phone: {user.phone}</p>
-                  <p>Role: {user.role}</p>
-                  <p>Status: {user.status}</p>
-                  <p>Lead ID: {user.lead_id}</p>
+      <motion.section
+        className="space-y-6 max-w-5xl mx-auto"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {filterUsers(allUsers, userRoleFilter, userStatusFilter).length === 0 ? (
+          <motion.div className="text-center py-12" variants={cardVariants}>
+            <p className="text-[#c27d50] text-lg font-medium">No users found.</p>
+          </motion.div>
+        ) : (
+          filterUsers(allUsers, userRoleFilter, userStatusFilter).map((user) => (
+            <ExpandableCard
+              key={user.id}
+              id={user.id}
+              isExpanded={expandedUserId === user.id}
+              onToggle={toggleExpand}
+              expandedContent={
+                <div className="text-sm text-[#6b7547] space-y-2 font-medium">
+                  {user.role === "STUDENT" && (
+                    <>
+                      <p>
+                        <span className="font-semibold">Parent 1:</span> {user.parent_1_name} (
+                        {user.parent_1_email}, {user.parent_1_phone})
+                      </p>
+                      <p>
+                        <span className="font-semibold">Parent 2:</span> {user.parent_2_name} (
+                        {user.parent_2_email}, {user.parent_2_phone})
+                      </p>
+                    </>
+                  )}
+                  {user.role === "PARENT" && (
+                    <>
+                      <p>
+                        <span className="font-semibold">Student Email:</span> {user.student_email}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Student Phone:</span> {user.student_phone}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Student Name:</span> {user.student_name}
+                      </p>
+                    </>
+                  )}
                 </div>
+              }
+            >
+              <div className="font-extrabold text-xl text-[#6b7547] mb-2">{user.full_name}</div>
+              <div className="text-sm text-[#c27d50] space-y-1 font-medium">
+                <p>Email: {user.email}</p>
+                <p>Phone: {user.phone}</p>
+                <p>Role: {user.role}</p>
+                <p>
+                  Status: <StatusBadge status={user.status} />
+                </p>
+                <p>Lead ID: {user.lead_id}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => toggleExpand(user.id)}
-                className="text-[#6b725a]"
-                aria-label={
-                  expandedUserId === user.id ? "Collapse user details" : "Expand user details"
-                }
-                title={expandedUserId === user.id ? "Collapse user details" : "Expand user details"}
-              >
-                {expandedUserId === user.id ? <ChevronUp /> : <ChevronDown />}
-              </button>
-            </div>
-            {expandedUserId === user.id && (
-              <div className="mt-4 text-sm text-gray-700 space-y-2">
-                {user.role === "STUDENT" && (
-                  <>
-                    <p>
-                      Parent 1: {user.parent_1_name} ({user.parent_1_email}, {user.parent_1_phone})
-                    </p>
-                    <p>
-                      Parent 2: {user.parent_2_name} ({user.parent_2_email}, {user.parent_2_phone})
-                    </p>
-                  </>
-                )}
-                {user.role === "PARENT" && (
-                  <>
-                    <p>Student Email: {user.student_email}</p>
-                    <p>Student Phone: {user.student_phone}</p>
-                    <p>Student Name: {user.student_name}</p>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        ))
-      )}
+            </ExpandableCard>
+          ))
+        )}
+      </motion.section>
     </section>
   </>
 );

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "~/lib/supabase";
 import { useAuth } from "~/context/auth/AuthContext";
+import { motion } from "framer-motion";
 import {
   LineChart,
   Line,
@@ -12,6 +13,9 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+
+import { fadeUp } from "~/constants/animations";
+import Modal from "~/components/ui/Modal";
 import type {
   User,
   EventSignup,
@@ -20,8 +24,12 @@ import type {
   ChartDataPoint,
   EventWithImageUrl,
 } from "~/types";
-import { X, Calendar, Clock, MapPin, FileText } from "lucide-react";
-import type { EventModalProps } from "~/types";
+import { Calendar, Clock, MapPin, FileText } from "lucide-react";
+
+const staggerContainer = {
+  show: { transition: { staggerChildren: 0.1 } },
+  hidden: {},
+};
 
 const Dashboard = () => {
   const { user: authUser, signOut, loading: authLoading } = useAuth();
@@ -239,18 +247,43 @@ const Dashboard = () => {
   const upcomingEvents = events.filter((ev) => ev.date >= todayStr);
   const pastEvents = events.filter((ev) => ev.date < todayStr);
 
+  // Show loading while auth is being resolved
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8a9663] mx-auto mb-4"></div>
+          <p className="text-[#6b7547] font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading)
-    return <div className="py-32 text-center text-xl text-[#4d5640]">Loading dashboard...</div>;
+    return (
+      <div className="py-32 text-center text-xl text-[#6b7547] font-semibold">
+        Loading dashboard...
+      </div>
+    );
 
   return (
-    <div className="min-h-screen bg-[#f8faf5] py-24 px-4 flex justify-center items-start relative">
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={staggerContainer}
+      className="min-h-screen bg-gradient-to-br from-[#f4f3ec] via-[#ebe7d9] to-[#dba979] py-24 px-4 flex justify-center items-start relative overflow-hidden"
+    >
+      {/* Decorative Glow Effect */}
+      <div className="absolute top-[-10%] right-[-20%] w-[600px] h-[600px] bg-[#8a9663]/10 rounded-full blur-[120px] opacity-40 z-0 animate-pulse hidden lg:block" />
+      <div className="absolute bottom-[-15%] left-[-25%] w-[800px] h-[800px] bg-[#c27d50]/8 rounded-full blur-[140px] opacity-30 z-0 hidden lg:block" />
+
       {/* Admin Panel and Log Out Buttons (fixed, stacked, always spaced) */}
       <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-4">
         {userData?.role === "ADMIN" && (
           <button
             type="button"
             onClick={() => navigate("/admin")}
-            className="bg-[#70923e] hover:bg-[#4f6e2d] text-white px-6 py-3 rounded-full shadow-lg transition w-40"
+            className="bg-[#8a9663] hover:bg-[#7a8757] text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 w-40 font-semibold hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#8a9663]/50"
             aria-label="Go to admin panel"
             title="Go to admin panel"
           >
@@ -260,7 +293,7 @@ const Dashboard = () => {
         <button
           type="button"
           onClick={handleLogout}
-          className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full shadow-lg transition w-40"
+          className="bg-[#c27d50] hover:bg-[#a46336] text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 w-40 font-semibold hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#c27d50]/50"
           aria-label="Log out of account"
           title="Log out of account"
         >
@@ -268,28 +301,38 @@ const Dashboard = () => {
         </button>
       </div>
 
-      <div className="w-full max-w-screen-xl flex flex-col lg:flex-row gap-12">
+      <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col lg:flex-row gap-12 px-2">
         {/* LEFT SIDE */}
         <div className="space-y-10 w-full lg:w-1/2">
-          <div className="bg-white rounded-3xl p-10 shadow-xl border border-[#b8c19a]">
-            <h1 className="text-4xl font-extrabold text-[#4a612c] mb-4">
+          <motion.div
+            variants={fadeUp}
+            whileHover={{ scale: 1.02, y: -5 }}
+            transition={{ duration: 0.3 }}
+            className="bg-gradient-to-br from-white via-[#f9f8f4] to-[#f4f3ec] rounded-3xl p-6 sm:p-8 lg:p-10 shadow-2xl border border-[#cdd1bc] backdrop-blur-sm"
+          >
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-[#6b7547] mb-4 drop-shadow-sm">
               {`Hey ${userData?.full_name || "User"},`}
             </h1>
-            <p className="text-lg text-[#6a7c3f] font-medium">
+            <p className="text-base sm:text-lg text-[#c27d50] font-medium leading-relaxed">
               You're on a mission to save the 🌍 — or at least the local park. Here's your impact.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="bg-white rounded-3xl p-8 shadow-xl border border-[#b8c19a]">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-[#49682d]">Hours Volunteered</h2>
+          <motion.div
+            variants={fadeUp}
+            className="bg-gradient-to-br from-white via-[#f9f8f4] to-[#f4f3ec] rounded-3xl p-8 shadow-2xl border border-[#cdd1bc] backdrop-blur-sm"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#6b7547] drop-shadow-sm">
+                Hours Volunteered
+              </h2>
               <div>
                 <label htmlFor="graph-period-select" className="sr-only">
                   Select time period for volunteer hours graph
                 </label>
                 <select
                   id="graph-period-select"
-                  className="border rounded px-2 py-1 text-[#49682d] font-semibold"
+                  className="border border-[#cdd1bc] rounded-lg px-3 py-2 text-[#6b7547] font-semibold bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200 focus:ring-2 focus:ring-[#8a9663] focus:border-[#8a9663]"
                   value={graphPeriod}
                   onChange={(e) => setGraphPeriod(e.target.value as GraphPeriod)}
                   aria-label="Select time period for volunteer hours graph"
@@ -305,27 +348,32 @@ const Dashboard = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={graphData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="5 5" />
-                  <XAxis dataKey="name" stroke="#73814f" />
-                  <YAxis stroke="#73814f" allowDecimals={false} />
+                  <XAxis dataKey="name" stroke="#6b7547" />
+                  <YAxis stroke="#6b7547" allowDecimals={false} />
                   <Tooltip />
                   <Legend />
                   <Line
                     type="monotone"
                     dataKey="hours"
-                    stroke="#70923e"
+                    stroke="#8a9663"
                     strokeWidth={4}
-                    activeDot={{ r: 8 }}
+                    activeDot={{ r: 8, fill: "#c27d50" }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* RIGHT SIDE */}
         <div className="space-y-10 w-full lg:w-1/2">
-          <div className="bg-white rounded-3xl p-8 shadow-lg border border-[#b8c19a]">
-            <h2 className="text-2xl font-bold text-[#49682d] mb-6">Upcoming Events</h2>
+          <motion.div
+            variants={fadeUp}
+            className="bg-gradient-to-br from-white via-[#f9f8f4] to-[#f4f3ec] rounded-3xl p-8 shadow-2xl border border-[#cdd1bc] backdrop-blur-sm"
+          >
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#6b7547] mb-6 drop-shadow-sm">
+              Upcoming Events
+            </h2>
             <ul className="space-y-4">
               {upcomingEvents.map((event) => {
                 const signedUp = !!userSignups[event.id];
@@ -333,14 +381,16 @@ const Dashboard = () => {
                 return (
                   <li
                     key={event.id}
-                    className="bg-[#f5f9e6] p-6 rounded-xl shadow flex justify-between flex-col lg:flex-row items-start lg:items-center gap-4"
+                    className="bg-gradient-to-r from-[#f4f3ec] to-[#f9f8f4] p-6 rounded-2xl shadow-sm border border-[#cdd1bc]/50 flex justify-between flex-col lg:flex-row items-start lg:items-center gap-4 hover:shadow-xl transition-all duration-300"
                   >
                     <div>
-                      <p className="font-bold text-[#4a612c] text-xl">{event.title}</p>
-                      <p className="text-sm text-[#6b7f46]">
+                      <p className="font-extrabold text-[#6b7547] text-xl drop-shadow-sm">
+                        {event.title}
+                      </p>
+                      <p className="text-sm text-[#c27d50] font-medium">
                         {formatDate(event.date)} {event.time && `at ${event.time}`}
                       </p>
-                      <p className="text-sm text-[#6b7f46]">{event.location}</p>
+                      <p className="text-sm text-[#c27d50] font-medium">{event.location}</p>
                       {event.waiver_required && event.waiver_url && event.date >= todayStr && (
                         <>
                           <p className="text-xs mt-1 px-3 py-1 bg-red-100 text-red-700 rounded-full font-semibold w-fit">
@@ -369,18 +419,18 @@ const Dashboard = () => {
                           setSelectedEvent(event);
                           setShowEventModal(true);
                         }}
-                        className="underline text-[#49682d] font-medium"
+                        className="bg-[#f4f3ec] text-[#6b7547] font-semibold px-4 py-2 rounded-full border border-[#cdd1bc] hover:bg-[#e6e8d5] hover:text-[#525c32] transition-all duration-300 shadow-sm hover:shadow-md"
                         aria-label={`View details for ${event.title}`}
                         title={`View details for ${event.title}`}
                       >
-                        View
+                        View Details
                       </button>
                       {signedUp ? (
                         <button
                           type="button"
                           onClick={() => handleCancelSignup(event.id)}
                           disabled={signupLoading === event.id}
-                          className="bg-red-600 text-white px-4 py-1.5 rounded-full font-semibold hover:bg-red-700"
+                          className="bg-[#c27d50] text-white px-4 py-2 rounded-full font-semibold hover:bg-[#a46336] transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#c27d50]/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                           aria-label={`Cancel signup for ${event.title}`}
                           title={`Cancel signup for ${event.title}`}
                         >
@@ -391,7 +441,7 @@ const Dashboard = () => {
                           type="button"
                           onClick={() => handleSignUp(event.id)}
                           disabled={signupLoading === event.id}
-                          className="bg-[#70923e] text-white px-4 py-1.5 rounded-full font-semibold hover:bg-[#4f6e2d]"
+                          className="bg-[#8a9663] text-white px-4 py-2 rounded-full font-semibold hover:bg-[#7a8757] transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#8a9663]/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                           aria-label={`Sign up for ${event.title}`}
                           title={`Sign up for ${event.title}`}
                         >
@@ -403,28 +453,42 @@ const Dashboard = () => {
                 );
               })}
             </ul>
-          </div>
+          </motion.div>
 
-          <div className="bg-white rounded-3xl p-6 shadow-xl border border-[#b8c19a]">
-            <h2 className="text-xl font-semibold text-[#49682d] mb-3">Past Events</h2>
-            <ul className="text-[#73814f] space-y-1">
+          <motion.div
+            variants={fadeUp}
+            className="bg-gradient-to-br from-white via-[#f9f8f4] to-[#f4f3ec] rounded-3xl p-6 shadow-2xl border border-[#cdd1bc] backdrop-blur-sm"
+          >
+            <h2 className="text-2xl font-extrabold text-[#6b7547] mb-4 drop-shadow-sm">
+              Past Events
+            </h2>
+            <ul className="text-[#c27d50] space-y-2">
               {pastEvents.map((ev) => (
-                <li key={ev.id} className="text-sm font-medium">
-                  {ev.title} — {formatDate(ev.date)} {ev.time ? `at ${ev.time}` : ""}
+                <li
+                  key={ev.id}
+                  className="text-sm font-medium bg-[#f4f3ec]/50 p-3 rounded-lg border border-[#cdd1bc]/30"
+                >
+                  <span className="font-semibold text-[#6b7547]">{ev.title}</span> —{" "}
+                  {formatDate(ev.date)} {ev.time ? `at ${ev.time}` : ""}
                 </li>
               ))}
             </ul>
-          </div>
+          </motion.div>
 
-          <div className="bg-white rounded-3xl p-8 shadow-xl border border-[#b8c19a]">
-            <h2 className="text-2xl font-bold text-[#49682d] mb-4">Volunteer Hours (Detailed)</h2>
+          <motion.div
+            variants={fadeUp}
+            className="bg-gradient-to-br from-white via-[#f9f8f4] to-[#f4f3ec] rounded-3xl p-8 shadow-2xl border border-[#cdd1bc] backdrop-blur-sm"
+          >
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#6b7547] mb-6 drop-shadow-sm">
+              Volunteer Hours (Detailed)
+            </h2>
             {volunteerHours.length === 0 ? (
-              <p className="text-gray-500 italic">No volunteer hours recorded yet.</p>
+              <p className="text-[#c27d50] italic font-medium">No volunteer hours recorded yet.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full border text-[#4d5640]">
+                <table className="min-w-full border border-[#cdd1bc] rounded-xl text-[#6b7547] shadow-sm">
                   <thead>
-                    <tr className="bg-[#f5f9e6]">
+                    <tr className="bg-gradient-to-r from-[#f4f3ec] to-[#f9f8f4]">
                       <th className="px-4 py-2 text-left">Event</th>
                       <th className="px-4 py-2 text-left">Date</th>
                       <th className="px-4 py-2 text-left">Time</th>
@@ -444,7 +508,7 @@ const Dashboard = () => {
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-[#f5f9e6] font-bold">
+                    <tr className="bg-gradient-to-r from-[#f4f3ec] to-[#f9f8f4] font-extrabold text-[#6b7547]">
                       <td className="px-4 py-2" colSpan={3}>
                         Total
                       </td>
@@ -454,120 +518,107 @@ const Dashboard = () => {
                 </table>
               </div>
             )}
-          </div>
+          </motion.div>
         </div>
       </div>
 
       {/* Modal */}
-      {showEventModal && selectedEvent && (
-        <EventModal
-          selectedEvent={selectedEvent}
-          setShowEventModal={setShowEventModal}
-          formatDate={formatDate}
-        />
-      )}
-    </div>
+      <Modal
+        isOpen={showEventModal && !!selectedEvent}
+        onClose={() => setShowEventModal(false)}
+        title={selectedEvent?.title || "Event Details"}
+        size="lg"
+      >
+        {selectedEvent && (
+          <EventModalContent selectedEvent={selectedEvent} formatDate={formatDate} />
+        )}
+      </Modal>
+    </motion.div>
   );
 };
 
-const EventModal = ({ selectedEvent, setShowEventModal, formatDate }: EventModalProps) => {
+const EventModalContent = ({
+  selectedEvent,
+  formatDate,
+}: {
+  selectedEvent: EventWithImageUrl;
+  formatDate: (dateStr: string, timeStr?: string) => string;
+}) => {
   const isUpcomingEvent = selectedEvent.date >= new Date().toISOString().split("T")[0];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-[#b8c19a] animate-in fade-in duration-200">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl">
-          <div className="flex justify-between items-start">
-            <h3 className="text-2xl font-bold text-[#49682d] pr-8 leading-tight">
-              {selectedEvent.title}
-            </h3>
-            <button
-              type="button"
-              onClick={() => setShowEventModal(false)}
-              className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-              aria-label="Close modal"
-            >
-              <X size={24} />
-            </button>
+    <div className="space-y-4 sm:space-y-6">
+      {/* Event Image */}
+      {selectedEvent.image && (
+        <div className="relative w-full h-64 rounded-xl overflow-hidden shadow-lg">
+          <img
+            src={selectedEvent.imageUrl || ""}
+            alt={selectedEvent.title}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+        </div>
+      )}
+
+      {/* Description */}
+      {selectedEvent.description && (
+        <div className="bg-[#f4f3ec]/50 p-4 rounded-xl border border-[#cdd1bc]/30">
+          <p className="text-[#6b7547] leading-relaxed font-medium">{selectedEvent.description}</p>
+        </div>
+      )}
+
+      {/* Event Details */}
+      <div className="grid gap-4">
+        {/* Date & Time */}
+        <div className="flex items-start gap-3 bg-white/50 p-3 rounded-lg border border-[#cdd1bc]/30">
+          <Calendar className="text-[#8a9663] mt-0.5 flex-shrink-0" size={18} />
+          <p className="font-semibold text-[#6b7547]">{formatDate(selectedEvent.date)}</p>
+        </div>
+        {selectedEvent.time && (
+          <div className="flex items-start gap-3 bg-white/50 p-3 rounded-lg border border-[#cdd1bc]/30">
+            <Clock className="text-[#8a9663] mt-0.5 flex-shrink-0" size={18} />
+            <p className="font-semibold text-[#6b7547]">{selectedEvent.time}</p>
           </div>
+        )}
+
+        {/* Location */}
+        <div className="flex items-start gap-3 bg-white/50 p-3 rounded-lg border border-[#cdd1bc]/30">
+          <MapPin className="text-[#8a9663] mt-0.5 flex-shrink-0" size={18} />
+          <p className="text-[#6b7547] font-medium">{selectedEvent.location}</p>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Event Image */}
-          {selectedEvent.image && (
-            <div className="relative w-full h-64 rounded-xl overflow-hidden shadow-lg">
-              <img
-                src={selectedEvent.imageUrl || ""}
-                alt={selectedEvent.title}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-            </div>
-          )}
+        {/* Waiver Info */}
+        <div className="flex items-start gap-3 bg-white/50 p-3 rounded-lg border border-[#cdd1bc]/30">
+          <FileText className="text-[#8a9663] mt-0.5 flex-shrink-0" size={18} />
+          <div>
+            <p className="font-semibold text-[#6b7547]">
+              Waiver Required: {selectedEvent.waiver_required ? "Yes" : "No"}
+            </p>
 
-          {/* Description */}
-          {selectedEvent.description && (
-            <div>
-              <p className="text-[#4d5640] leading-relaxed">{selectedEvent.description}</p>
-            </div>
-          )}
-
-          {/* Event Details */}
-          <div className="grid gap-4">
-            {/* Date & Time */}
-            <div className="flex items-start gap-3">
-              <Calendar className="text-[#49682d] mt-0.5 flex-shrink-0" size={18} />
-              <p className="font-medium text-gray-900">{formatDate(selectedEvent.date)}</p>
-            </div>
-            {selectedEvent.time && (
-              <div className="flex items-start gap-3">
-                <Clock className="text-[#49682d] mt-0.5 flex-shrink-0" size={18} />
-                <p className="font-medium text-gray-900">{selectedEvent.time}</p>
+            {selectedEvent.waiver_required && selectedEvent.waiver_url && isUpcomingEvent && (
+              <div className="mt-3 p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl border border-red-200 shadow-sm">
+                <p className="text-sm text-red-800 font-semibold mb-2">⚠️ Waiver Required</p>
+                <p className="text-sm text-red-700 mb-3 leading-relaxed">
+                  This event requires a signed waiver. Please download, sign, and bring a copy with
+                  you.
+                </p>
+                <a
+                  href={selectedEvent.waiver_url}
+                  download
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-[#c27d50] hover:text-[#a46336] bg-white px-3 py-2 rounded-lg border border-[#cdd1bc] hover:shadow-md transition-all duration-200"
+                >
+                  <FileText size={16} />
+                  Download Waiver PDF
+                </a>
               </div>
             )}
-
-            {/* Location */}
-            <div className="flex items-start gap-3">
-              <MapPin className="text-[#49682d] mt-0.5 flex-shrink-0" size={18} />
-              <p className="text-gray-900">{selectedEvent.location}</p>
-            </div>
-
-            {/* Waiver Info */}
-            <div className="flex items-start gap-3">
-              <FileText className="text-[#49682d] mt-0.5 flex-shrink-0" size={18} />
-              <div>
-                <p className="font-medium text-gray-900">
-                  Waiver Required: {selectedEvent.waiver_required ? "Yes" : "No"}
-                </p>
-
-                {selectedEvent.waiver_required && selectedEvent.waiver_url && isUpcomingEvent && (
-                  <div className="mt-2 p-3 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm text-red-800 font-medium mb-2">⚠️ Waiver Required</p>
-                    <p className="text-sm text-red-700 mb-2">
-                      This event requires a signed waiver. Please download, sign, and bring a copy
-                      with you.
-                    </p>
-                    <a
-                      href={selectedEvent.waiver_url}
-                      download
-                      className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:text-blue-800 underline"
-                    >
-                      <FileText size={14} />
-                      Download Waiver PDF
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Signup Count Component */}
-          <div className="pt-4 border-t border-gray-100">
-            <EventSignupCount eventId={selectedEvent.id} />
           </div>
         </div>
+      </div>
+
+      {/* Signup Count Component */}
+      <div className="pt-6 border-t border-[#cdd1bc]/50">
+        <EventSignupCount eventId={selectedEvent.id} />
       </div>
     </div>
   );
@@ -587,8 +638,8 @@ const EventSignupCount = ({ eventId }: { eventId: string }) => {
   }, [eventId]);
 
   return (
-    <p className="mt-4 font-semibold text-[#4d5640]">
-      Signed up volunteeers: {count ?? "Loading..."}
+    <p className="mt-4 font-semibold text-[#6b7547]">
+      Signed up volunteers: {count ?? "Loading..."}
     </p>
   );
 };

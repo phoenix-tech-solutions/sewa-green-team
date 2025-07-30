@@ -2,21 +2,35 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "~/lib/supabase";
 import clsx from "clsx";
+import { motion } from "framer-motion";
 import PendingUsersTab from "~/components/admin/PendingUsersTab";
 import AllUsersTab from "~/components/admin/AllUsersTab";
 import CreateEventTab from "~/components/admin/CreateEventTab";
 import ManageEventsTab from "~/components/admin/ManageEventsTab";
 import WebsiteDetailsTab from "~/components/admin/WebsiteDetailsTab";
 import { useDeletePastEventPDFs } from "~/hooks/useDeletePastEventPDFs";
-// import { useDeletePastEventImages } from "~/hooks/useDeletePastEventImages";
 import type { User, Event, EventFormData, UserWithStudentInfo } from "~/types";
-// import type { FileObject } from "@supabase/storage-js";
 import { useAuth } from "../context/auth/AuthContext";
 
 const tabs = ["Pending Users", "All Users", "Create Event", "Manage Events", "Website Details"];
 
 const roles = ["ALL", "STUDENT", "PARENT", "ADMIN", "OTHER"]; // adjust based on your roles
 const statusOptions = ["ALL", "APPROVED", "PENDING", "REJECTED"];
+
+// Animation variants
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6 },
+  },
+};
+
+const staggerContainer = {
+  show: { transition: { staggerChildren: 0.1 } },
+  hidden: {},
+};
 
 const AdminPanel = () => {
   const { user, loading: authLoading } = useAuth();
@@ -26,7 +40,6 @@ const AdminPanel = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  // const [imageMap, setImageMap] = useState<Map<string, FileObject>>(new Map());
   const [userRoleFilter, setUserRoleFilter] = useState("ALL");
   const [pendingRoleFilter, setPendingRoleFilter] = useState("ALL");
   const [userStatusFilter, setUserStatusFilter] = useState("ALL");
@@ -304,37 +317,6 @@ const AdminPanel = () => {
     },
   );
 
-  // const deletePastEventImages = useDeletePastEventImages(
-  //   () =>
-  //     events
-  //       .filter((event) => new Date(event.date) < new Date() && event.image_id)
-  //       .map((event) => {
-  //         const imageId = event.image_id;
-  //         if (!imageId) {
-  //           return {
-  //             ...event,
-  //             image: null,
-  //             imageUrl: null,
-  //           };
-  //         }
-
-  //         const image = imageMap.get(imageId) || null;
-  //         const imageUrl = image
-  //           ? supabase.storage.from("events/images").getPublicUrl(image.name).data.publicUrl
-  //           : null;
-
-  //         return {
-  //           ...event,
-  //           image,
-  //           imageUrl,
-  //         };
-  //       }) || [],
-  //   (event) =>
-  //     event.imageUrl
-  //       ? event.imageUrl?.substring(`${supabaseUrl}/storage/v1/object/public/events/`.length)
-  //       : null,
-  // );
-
   useEffect(() => {
     if (events.length > 0) {
       deletePastEventPDFs().then(() => {
@@ -346,84 +328,112 @@ const AdminPanel = () => {
   }, [events]);
 
   if (loading || authLoading)
-    return <div className="text-center py-20 text-lg">Loading admin panel...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#f4f3ec] via-[#ebe7d9] to-[#dba979] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8a9663] mx-auto mb-4"></div>
+          <p className="text-[#6b7547] font-medium">Loading admin panel...</p>
+        </div>
+      </div>
+    );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12 space-y-10 mt-24">
-      <h1 className="text-4xl font-bold text-[#8a9663] text-center mb-6">Admin Panel</h1>
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={staggerContainer}
+      className="min-h-screen bg-gradient-to-br from-[#f4f3ec] via-[#ebe7d9] to-[#dba979] pt-24 relative overflow-hidden"
+    >
+      {/* Decorative Glow Effects */}
+      <div className="absolute top-[-10%] right-[-20%] w-[600px] h-[600px] bg-[#8a9663]/10 rounded-full blur-[120px] opacity-40 z-0 animate-pulse hidden lg:block" />
+      <div className="absolute bottom-[-15%] left-[-25%] w-[800px] h-[800px] bg-[#c27d50]/8 rounded-full blur-[140px] opacity-30 z-0 hidden lg:block" />
 
-      {/* Tab Navigation */}
-      <div className="flex justify-center gap-6 flex-wrap">
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={clsx(
-              "px-4 py-2 rounded-full font-semibold transition whitespace-nowrap",
-              activeTab === tab
-                ? "bg-[#8a9663] text-white shadow-lg"
-                : "bg-[#dfe5cd] text-[#4d5640] hover:bg-[#cbd6b0]",
-            )}
-            onClick={() => setActiveTab(tab)}
-            aria-label={`Switch to ${tab} tab`}
-            title={`Switch to ${tab} tab`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      <div className="relative z-10 w-full h-full space-y-10">
+        <motion.h1
+          variants={fadeUp}
+          className="text-4xl sm:text-5xl font-extrabold text-[#6b7547] text-center mb-8 drop-shadow-sm"
+        >
+          Admin Panel
+        </motion.h1>
 
-      {/* Tab Content */}
-      <div>
-        {activeTab === "Pending Users" && (
-          <PendingUsersTab
-            pendingUsers={pendingUsers}
-            pendingRoleFilter={pendingRoleFilter}
-            setPendingRoleFilter={setPendingRoleFilter}
-            pendingStatusFilter={pendingStatusFilter}
-            setPendingStatusFilter={setPendingStatusFilter}
-            roles={roles}
-            statusOptions={statusOptions}
-            filterUsers={filterUsers}
-            expandedUserId={expandedUserId}
-            toggleExpand={toggleExpand}
-            updateUserStatus={updateUserStatus}
-          />
-        )}
-        {activeTab === "All Users" && (
-          <AllUsersTab
-            allUsers={allUsers}
-            userRoleFilter={userRoleFilter}
-            setUserRoleFilter={setUserRoleFilter}
-            userStatusFilter={userStatusFilter}
-            setUserStatusFilter={setUserStatusFilter}
-            roles={roles}
-            statusOptions={statusOptions}
-            filterUsers={filterUsers}
-            expandedUserId={expandedUserId}
-            toggleExpand={toggleExpand}
-            copyToClipboard={copyToClipboard}
-            generateBulkList={generateBulkList}
-          />
-        )}
-        {activeTab === "Create Event" && (
-          <CreateEventTab
-            eventForm={eventForm}
-            handleEventChange={handleEventChange}
-            saveEvent={saveEvent}
-            setEventForm={setEventForm}
-          />
-        )}
-        {activeTab === "Manage Events" && (
-          <ManageEventsTab
-            events={events}
-            startEditEvent={startEditEvent}
-            deleteEvent={deleteEvent}
-          />
-        )}
-        {activeTab === "Website Details" && <WebsiteDetailsTab />}
+        {/* Tab Navigation */}
+        <motion.div variants={fadeUp} className="flex justify-center gap-2 sm:gap-4 flex-wrap px-2">
+          {tabs.map((tab) => (
+            <motion.button
+              key={tab}
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.97 }}
+              className={clsx(
+                "px-3 sm:px-6 py-2 sm:py-3 rounded-full font-semibold transition-all duration-300 whitespace-nowrap shadow-md hover:shadow-lg text-sm sm:text-base",
+                activeTab === tab
+                  ? "bg-[#8a9663] text-white shadow-xl"
+                  : "bg-gradient-to-r from-white to-[#f9f8f4] text-[#6b7547] hover:bg-gradient-to-r hover:from-[#f4f3ec] hover:to-[#e6e8d5] border border-[#cdd1bc]",
+              )}
+              onClick={() => setActiveTab(tab)}
+              aria-label={`Switch to ${tab} tab`}
+              title={`Switch to ${tab} tab`}
+            >
+              {tab}
+            </motion.button>
+          ))}
+        </motion.div>
+
+        {/* Tab Content */}
+        <motion.div
+          variants={fadeUp}
+          className="bg-[#f4f3ec]/70 p-4 sm:p-6 lg:p-8 h-full min-h-[calc(100vh-130px)] pb-20 flex-1 shadow-2xl border border-[#cdd1bc] backdrop-blur-sm sm:mx-0"
+        >
+          {activeTab === "Pending Users" && (
+            <PendingUsersTab
+              pendingUsers={pendingUsers}
+              pendingRoleFilter={pendingRoleFilter}
+              setPendingRoleFilter={setPendingRoleFilter}
+              pendingStatusFilter={pendingStatusFilter}
+              setPendingStatusFilter={setPendingStatusFilter}
+              roles={roles}
+              statusOptions={statusOptions}
+              filterUsers={filterUsers}
+              expandedUserId={expandedUserId}
+              toggleExpand={toggleExpand}
+              updateUserStatus={updateUserStatus}
+            />
+          )}
+          {activeTab === "All Users" && (
+            <AllUsersTab
+              allUsers={allUsers}
+              userRoleFilter={userRoleFilter}
+              setUserRoleFilter={setUserRoleFilter}
+              userStatusFilter={userStatusFilter}
+              setUserStatusFilter={setUserStatusFilter}
+              roles={roles}
+              statusOptions={statusOptions}
+              filterUsers={filterUsers}
+              expandedUserId={expandedUserId}
+              toggleExpand={toggleExpand}
+              copyToClipboard={copyToClipboard}
+              generateBulkList={generateBulkList}
+            />
+          )}
+          {activeTab === "Create Event" && (
+            <CreateEventTab
+              eventForm={eventForm}
+              handleEventChange={handleEventChange}
+              saveEvent={saveEvent}
+              setEventForm={setEventForm}
+            />
+          )}
+          {activeTab === "Manage Events" && (
+            <ManageEventsTab
+              events={events}
+              startEditEvent={startEditEvent}
+              deleteEvent={deleteEvent}
+            />
+          )}
+          {activeTab === "Website Details" && <WebsiteDetailsTab />}
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { motion } from "framer-motion";
 import { supabase } from "~/lib/supabase";
 import type { Json } from "@/supabase.types";
 import type { Leader } from "~/types";
@@ -47,6 +48,7 @@ const WebsiteDetailsTab = () => {
     fetchStats();
     fetchEvents();
   }, []);
+
   // Handle featured event selection
   const handleFeaturedEventChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFeaturedEventId(e.target.value);
@@ -175,19 +177,36 @@ const WebsiteDetailsTab = () => {
     alert("Leadership updated!");
   };
 
-  if (loading) return <div>Loading website details...</div>;
+  if (loading)
+    return (
+      <div className="text-center py-12">
+        <div className="text-xl text-[#6b7547] font-semibold">Loading website details...</div>
+      </div>
+    );
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-12">
+    <div className="container mx-auto px-4 py-8">
+      <motion.h1
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-2xl sm:text-3xl font-extrabold text-[#6b7547] text-center mb-8 drop-shadow-sm"
+      >
+        Website Details
+      </motion.h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 lg:gap-12">
         {/* Website Stats Panel */}
-        <form
+        <motion.form
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
           onSubmit={handleSave}
-          className="bg-white p-8 rounded-xl shadow space-y-6 flex flex-col h-fit"
+          className="bg-gradient-to-br from-white via-[#f9f8f4] to-[#f4f3ec] p-6 sm:p-8 rounded-2xl shadow-2xl border border-[#cdd1bc] space-y-6 flex flex-col h-fit"
         >
-          <h2 className="text-2xl font-bold mb-4 text-[#8a9663]">Edit Website Stats</h2>
+          <h2 className="text-xl sm:text-2xl font-extrabold mb-4 text-[#6b7547] drop-shadow-sm">
+            Edit Website Stats
+          </h2>
           <div>
-            <label htmlFor="volunteers-input" className="block font-semibold mb-1">
+            <label htmlFor="volunteers-input" className="block font-semibold mb-2 text-[#6b7547]">
               Volunteers
             </label>
             <input
@@ -196,14 +215,14 @@ const WebsiteDetailsTab = () => {
               name="volunteers"
               value={stats.volunteers}
               onChange={handleChange}
-              className="w-full border rounded px-3 py-2"
+              className="w-full p-3 rounded-xl border border-[#cdd1bc] focus:ring-2 focus:ring-[#8a9663] transition duration-300 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md text-[#6b7547] font-medium"
               min={0}
               aria-label="Number of volunteers"
               title="Enter the total number of volunteers"
             />
           </div>
           <div>
-            <label htmlFor="trash-input" className="block font-semibold mb-1">
+            <label htmlFor="trash-input" className="block font-semibold mb-2 text-[#6b7547]">
               Trash Removed (lbs)
             </label>
             <input
@@ -212,14 +231,14 @@ const WebsiteDetailsTab = () => {
               name="trash"
               value={stats.trash}
               onChange={handleChange}
-              className="w-full border rounded px-3 py-2"
+              className="w-full p-3 rounded-xl border border-[#cdd1bc] focus:ring-2 focus:ring-[#8a9663] transition duration-300 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md text-[#6b7547] font-medium"
               min={0}
               aria-label="Pounds of trash removed"
               title="Enter the total pounds of trash removed"
             />
           </div>
           <div>
-            <label htmlFor="events-input" className="block font-semibold mb-1">
+            <label htmlFor="events-input" className="block font-semibold mb-2 text-[#6b7547]">
               Events Hosted
             </label>
             <input
@@ -228,7 +247,7 @@ const WebsiteDetailsTab = () => {
               name="events"
               value={stats.events}
               onChange={handleChange}
-              className="w-full border rounded px-3 py-2"
+              className="w-full p-3 rounded-xl border border-[#cdd1bc] focus:ring-2 focus:ring-[#8a9663] transition duration-300 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md text-[#6b7547] font-medium"
               min={0}
               aria-label="Number of events hosted"
               title="Enter the total number of events hosted"
@@ -236,18 +255,25 @@ const WebsiteDetailsTab = () => {
           </div>
           <button
             type="submit"
-            className="bg-[#8a9663] hover:bg-[#6d7a4e] text-white px-6 py-2 rounded-full font-semibold mt-4"
+            className="bg-[#8a9663] hover:bg-[#7a8757] text-white px-8 py-3 rounded-full font-semibold mt-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
             disabled={saving}
             aria-label="Save website statistics"
             title="Save changes to website statistics"
           >
             {saving ? "Saving..." : "Save Changes"}
           </button>
-        </form>
+        </motion.form>
 
         {/* Featured Event Selection Panel */}
-        <div className="bg-white p-8 rounded-xl shadow space-y-6 flex flex-col h-fit">
-          <h2 className="text-2xl font-bold mb-4 text-[#8a9663]">Select Featured Event</h2>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-gradient-to-br from-white via-[#f9f8f4] to-[#f4f3ec] p-6 sm:p-8 rounded-2xl shadow-2xl border border-[#cdd1bc] space-y-6 flex flex-col h-fit"
+        >
+          <h2 className="text-xl sm:text-2xl font-extrabold mb-4 text-[#6b7547] drop-shadow-sm">
+            Select Featured Event
+          </h2>
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <label htmlFor="featured-event-select" className="sr-only">
               Select featured event
@@ -278,7 +304,7 @@ const WebsiteDetailsTab = () => {
               {featuredSaving ? "Saving..." : "Save Featured Event"}
             </button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Leadership Management Panel */}
         <div className="bg-white p-8 rounded-xl shadow space-y-6 flex flex-col h-fit">
