@@ -55,18 +55,48 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
     }
   };
 
-  const [cleaning, setCleaning] = useState(false);
+  const [cleaningImages, setCleaningImages] = useState(false);
+  const [cleaningWaivers, setCleaningWaivers] = useState(false);
 
-  const clearOldData = async () => {
+  const clearOldEventImages = async () => {
     if (!window.confirm("Clean up expired event images?")) return;
-    setCleaning(true);
-    const { error } = await supabase.rpc("cleanup_expired_event_images_rpc");
-    if (error) {
-      alert("Failed to clean up: " + error.message);
-    } else {
-      alert("Successfully cleaned up expired event images!");
+    setCleaningImages(true);
+
+    try {
+      // used to use supabase.rpc("cleanup_expired_event_images_rpc");
+      const { error } = await supabase.functions.invoke("delete-past-event-images");
+
+      if (error) {
+        alert("Failed to clean up images: " + error.message);
+      } else {
+        alert("Successfully cleaned up expired event images!");
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      alert("Failed to clean up images: " + errorMessage);
+    } finally {
+      setCleaningImages(false);
     }
-    setCleaning(false);
+  };
+
+  const clearOldEventWaivers = async () => {
+    if (!window.confirm("Clean up old waivers?")) return;
+    setCleaningWaivers(true);
+
+    try {
+      const { error } = await supabase.functions.invoke("delete-past-event-waivers");
+
+      if (error) {
+        alert("Failed to clean up waivers: " + error.message);
+      } else {
+        alert("Successfully cleaned up old waivers!");
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      alert("Failed to clean up waivers: " + errorMessage);
+    } finally {
+      setCleaningWaivers(false);
+    }
   };
 
   const fetchSignedUpUsers = async (eventId: string) => {
@@ -348,15 +378,24 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
           </div>
         </div>
       )}
-      <div className="w-full flex justify-center mt-4">
+      <div className="w-full flex flex-col items-center gap-4 mt-4">
         <button
-          onClick={clearOldData}
-          disabled={cleaning}
+          onClick={clearOldEventImages}
+          disabled={cleaningImages}
           className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-full text-white font-semibold"
           aria-label="Clean up old event images"
           title="Clean up old event images"
         >
-          {cleaning ? "Cleaning..." : "Clean Old Images"}
+          {cleaningImages ? "Cleaning..." : "Delete Old Images"}
+        </button>
+        <button
+          onClick={clearOldEventWaivers}
+          disabled={cleaningWaivers}
+          className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-full text-white font-semibold"
+          aria-label="Clean up old event waivers"
+          title="Clean up old event waivers"
+        >
+          {cleaningWaivers ? "Cleaning..." : "Delete Old Waivers"}
         </button>
       </div>
 

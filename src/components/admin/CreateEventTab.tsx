@@ -8,9 +8,10 @@ const CreateEventTab = ({
   saveEvent,
   setEventForm,
 }: CreateEventTabProps) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const waiverInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+  const [currentWaiverUrl, setCurrentWaiverUrl] = useState<string | null>(null);
 
   // Fetch current image URL when editing an event
   useEffect(() => {
@@ -47,11 +48,46 @@ const CreateEventTab = ({
     fetchCurrentImage();
   }, [eventForm.image_id]);
 
+  // Fetch current waiver URL when editing an event
+  useEffect(() => {
+    const fetchCurrentWaiver = async () => {
+      if (eventForm.waiver_id) {
+        try {
+          // Get the file info from storage
+          const { data: files, error } = await supabase.storage
+            .from("events")
+            .list("waivers", { limit: 1000 });
+
+          if (error) throw error;
+
+          // Find the file with matching ID
+          const waiverFile = files?.find((file) => file.id === eventForm.waiver_id);
+
+          if (waiverFile) {
+            const {
+              data: { publicUrl },
+            } = supabase.storage.from("events").getPublicUrl(`waivers/${waiverFile.name}`);
+            setCurrentWaiverUrl(publicUrl);
+          } else {
+            setCurrentWaiverUrl(null);
+          }
+        } catch (error) {
+          console.error("Error fetching current waiver:", error);
+          setCurrentWaiverUrl(null);
+        }
+      } else {
+        setCurrentWaiverUrl(null);
+      }
+    };
+
+    fetchCurrentWaiver();
+  }, [eventForm.waiver_id]);
+
   return (
     <section>
       <form
         onSubmit={(e) =>
-          saveEvent(e, fileInputRef.current?.files?.[0], imageInputRef.current?.files?.[0])
+          saveEvent(e, waiverInputRef.current?.files?.[0], imageInputRef.current?.files?.[0])
         }
         className="space-y-4 max-w-xl mx-auto"
       >
@@ -172,17 +208,17 @@ const CreateEventTab = ({
               id="waiver-file"
               type="file"
               accept="application/pdf"
-              ref={fileInputRef}
+              ref={waiverInputRef}
               className="formInput"
-              required={!eventForm.waiver_url}
+              required={!eventForm.waiver_id}
               aria-label="Upload waiver PDF file"
               title="Upload a PDF waiver file for the event"
             />
-            {eventForm.waiver_url && eventForm.date >= new Date().toISOString().split("T")[0] && (
+            {currentWaiverUrl && eventForm.date >= new Date().toISOString().split("T")[0] && (
               <p className="text-xs mt-1">
                 Current:{" "}
                 <a
-                  href={eventForm.waiver_url}
+                  href={currentWaiverUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline text-blue-700"
@@ -211,8 +247,8 @@ const CreateEventTab = ({
                 time: "",
                 location: "",
                 waiver_required: false,
-                waiver_url: "",
-                image_id: "",
+                waiver_id: undefined,
+                image_id: undefined,
               })
             }
             className="ml-4 bg-gray-300 hover:bg-gray-400 rounded-full px-6 py-2"
