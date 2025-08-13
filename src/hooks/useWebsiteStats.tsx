@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "~/lib/supabase";
+import type { WebsiteDetails } from "~/types";
 
 export const useWebsiteStats = () => {
-  const [stats, setStats] = useState({ volunteers: 0, trash: 0, events: 0 });
+  const [stats, setStats] = useState<WebsiteDetails>({
+    volunteers: 0,
+    trash: 0,
+    events: 0,
+    leadership: null,
+    featured_event_id: null,
+    id: 1,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

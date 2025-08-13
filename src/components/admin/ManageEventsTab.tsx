@@ -1,22 +1,11 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { supabase } from "~/lib/supabase";
 import { FaUser, FaEnvelope, FaPhone } from "react-icons/fa";
-import type { ManageEventsTabProps, Event, User } from "~/types";
-
-interface SignedUpUser {
-  id: string;
-  status: string | null;
-  user_id: string | null;
-  event_id: string | null;
-  created_at: string | null;
-  user: User | null;
-}
-
-interface HoursUser {
-  id: string;
-  full_name: string;
-  email: string;
-}
+import VolunteerHoursModal from "~/components/admin/VolunteerHoursModal";
+import Modal from "~/components/ui/Modal";
+import { cardVariants, containerVariants, userCardVariants } from "~/constants/animations";
+import type { ManageEventsTabProps, Event, SignedUpUser, HoursUser } from "~/types";
 
 const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTabProps) => {
   const [showModal, setShowModal] = useState(false);
@@ -33,7 +22,6 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
   // Volunteer Hours Modal State
   const [showHoursModal, setShowHoursModal] = useState(false);
   const [hoursEvent, setHoursEvent] = useState<Event | null>(null);
-  const [hoursData, setHoursData] = useState<{ [userId: string]: number }>({});
   const [hoursUsers, setHoursUsers] = useState<HoursUser[]>([]);
   const [savingHours, setSavingHours] = useState(false);
 
@@ -125,9 +113,8 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
   // Open modal and fetch users for event
   const handleAddVolunteerHours = async (event: Event) => {
     setHoursEvent(event);
-    setShowHoursModal(true);
     setSavingHours(false);
-    setHoursData({});
+
     // Fetch users signed up for this event
     const { data } = await supabase
       .from("event_signups")
@@ -138,26 +125,12 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
         ?.map((s: { user: HoursUser | null }) => s.user)
         .filter((user): user is HoursUser => user !== null) || [],
     );
-  };
 
-  // Handle input change
-  const handleHoursChange = (userId: string, value: string) => {
-    setHoursData((prev) => ({ ...prev, [userId]: Number(value) }));
-  };
-
-  // Set all hours at once
-  const handleSetAllHours = (value: string) => {
-    const num = Number(value);
-    if (isNaN(num)) return;
-    const newData: { [userId: string]: number } = {};
-    hoursUsers.forEach((user) => {
-      newData[user.id] = num;
-    });
-    setHoursData(newData);
+    setShowHoursModal(true);
   };
 
   // Save volunteer hours to Supabase
-  const handleSaveVolunteerHours = async () => {
+  const handleSaveVolunteerHours = async (hoursData: { [userId: string]: number }) => {
     if (!hoursEvent) return;
 
     setSavingHours(true);
@@ -169,21 +142,19 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
           user_id: userId,
           hours,
         }));
-      if (inserts.length === 0) {
-        alert("Please enter hours for at least one user.");
-        setSavingHours(false);
-        return;
-      }
+
       // Insert or upsert volunteer hours
       const { error } = await supabase
         .from("volunteer_hours")
         .upsert(inserts, { onConflict: "event_id,user_id" });
       if (error) throw error;
+
       setShowHoursModal(false);
-      alert("Volunteer hours saved!");
+      alert("Volunteer hours saved successfully!");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
       alert("Error saving hours: " + errorMessage);
+      throw err; // Re-throw to let the modal handle the error state
     } finally {
       setSavingHours(false);
     }
@@ -191,32 +162,48 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
 
   return (
     <>
-      <section className="space-y-4 max-w-4xl mx-auto">
+      <div className="mb-8">
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-[#6b7547] text-center drop-shadow-sm">
+          Manage Events
+        </h2>
+      </div>
+      <motion.section
+        className="space-y-6 max-w-5xl mx-auto"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {events.length === 0 ? (
-          <p className="text-gray-600 italic text-center">
-            No events created yet. Use the <strong>Create Event</strong> tab to add new events.
-          </p>
+          <motion.div className="text-center py-12" variants={cardVariants}>
+            <p className="text-[#c27d50] text-lg font-medium">
+              No events created yet. Use the <strong>Create Event</strong> tab to add new events.
+            </p>
+          </motion.div>
         ) : (
           events.map((event: Event) => (
-            <div
+            <motion.div
               key={event.id}
-              className="p-4 bg-white border rounded-lg shadow flex flex-col sm:flex-row sm:justify-between sm:items-center"
+              className="p-4 sm:p-6 bg-gradient-to-r from-white to-[#f9f8f4] border border-[#cdd1bc] rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 flex flex-col sm:flex-row sm:justify-between sm:items-center"
+              variants={cardVariants}
+              whileHover={{ scale: 1.02, y: -2 }}
             >
-              <div className="mb-2 sm:mb-0">
-                <div className="font-semibold">{event.title}</div>
-                <div className="text-sm text-gray-600">
+              <div className="mb-4 sm:mb-0">
+                <div className="font-extrabold text-xl text-[#6b7547] mb-2">{event.title}</div>
+                <div className="text-sm text-[#c27d50] space-y-1 font-medium">
                   <p>{formatDate(event.date, event.time || undefined)}</p>
                   <p>{event.location}</p>
                   {event.waiver_required && (
-                    <p className="text-red-600 font-semibold">Waiver Required</p>
+                    <p className="text-red-600 font-semibold bg-red-50 px-2 py-1 rounded-full w-fit">
+                      Waiver Required
+                    </p>
                   )}
                 </div>
               </div>
-              <div className="flex gap-4 flex-wrap">
+              <div className="flex gap-2 sm:gap-3 flex-wrap">
                 <button
                   type="button"
                   onClick={() => startEditEvent(event)}
-                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 rounded-full text-white font-semibold"
+                  className="px-3 sm:px-4 py-2 bg-[#8a9663] hover:bg-[#7a8757] rounded-full text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 text-sm sm:text-base"
                   aria-label={`Edit event ${event.title}`}
                   title={`Edit event ${event.title}`}
                 >
@@ -225,7 +212,7 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
                 <button
                   type="button"
                   onClick={() => handleDelete(event.id)}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-full text-white font-semibold"
+                  className="px-3 sm:px-4 py-2 bg-[#c27d50] hover:bg-[#a46336] rounded-full text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 text-sm sm:text-base"
                   aria-label={`Delete event ${event.title}`}
                   title={`Delete event ${event.title}`}
                 >
@@ -234,7 +221,7 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
                 <button
                   type="button"
                   onClick={() => fetchSignedUpUsers(event.id)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white font-semibold"
+                  className="px-3 sm:px-4 py-2 bg-gradient-to-r from-[#f4f3ec] to-[#e6e8d5] text-[#6b7547] border border-[#cdd1bc] hover:bg-gradient-to-r hover:from-[#e6e8d5] hover:to-[#d4d8c1] rounded-full font-semibold shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 text-sm sm:text-base"
                   aria-label={`View users signed up for ${event.title}`}
                   title={`View users signed up for ${event.title}`}
                 >
@@ -244,7 +231,7 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
                   <button
                     type="button"
                     onClick={() => handleAddVolunteerHours(event)}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-full text-white font-semibold"
+                    className="px-4 py-2 bg-[#8a9663] hover:bg-[#7a8757] rounded-full text-white font-semibold shadow-md hover:shadow-lg"
                     aria-label={`Add volunteer hours for ${event.title}`}
                     title={`Add volunteer hours for ${event.title}`}
                   >
@@ -252,104 +239,101 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
                   </button>
                 )}
               </div>
-            </div>
+            </motion.div>
           ))
         )}
-      </section>
+      </motion.section>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-80 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-[#cdd1bc] p-8">
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Users Signed Up"
+        size="xl"
+      >
+        {!loadingUsers && signedUpUsers.length > 0 && (
+          <div className="flex flex-wrap gap-4 mb-6">
             <button
               type="button"
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-6 text-2xl text-gray-600 hover:text-black font-bold"
-              aria-label="Close modal"
-              title="Close modal"
+              onClick={() => copyField("email")}
+              className="bg-[#8a9663] hover:bg-[#7a8757] text-white px-4 py-2 rounded-full font-semibold flex items-center gap-2 transition-colors"
+              aria-label="Copy all user emails to clipboard"
+              title="Copy all user emails to clipboard"
             >
-              ×
+              <FaEnvelope /> Copy Emails
             </button>
-
-            <h2 className="text-3xl font-bold text-[#49682d] mb-4">Users Signed Up</h2>
-
-            {!loadingUsers && signedUpUsers.length > 0 && (
-              <div className="flex flex-wrap gap-4 mb-6">
-                <button
-                  type="button"
-                  onClick={() => copyField("email")}
-                  className="bg-[#70923e] hover:bg-[#5c7c32] text-white px-4 py-2 rounded-full font-semibold flex items-center gap-2"
-                  aria-label="Copy all user emails to clipboard"
-                  title="Copy all user emails to clipboard"
-                >
-                  <FaEnvelope /> Copy Emails
-                </button>
-                <button
-                  type="button"
-                  onClick={() => copyField("phone")}
-                  className="bg-[#70923e] hover:bg-[#5c7c32] text-white px-4 py-2 rounded-full font-semibold flex items-center gap-2"
-                  aria-label="Copy all user phone numbers to clipboard"
-                  title="Copy all user phone numbers to clipboard"
-                >
-                  <FaPhone /> Copy Phones
-                </button>
-              </div>
-            )}
-
-            {loadingUsers ? (
-              <p className="text-gray-500 text-center">Loading users...</p>
-            ) : signedUpUsers.length === 0 ? (
-              <p className="text-gray-600 text-center italic">No users signed up yet.</p>
-            ) : (
-              <ul className="space-y-6">
-                {signedUpUsers.map((signup) => {
-                  const user = signup.user;
-                  if (!user) return null;
-                  return (
-                    <li
-                      key={signup.id}
-                      className="p-4 rounded-2xl bg-[#f8f9f4] border border-[#dfe4cb] shadow-md"
-                    >
-                      <div className="mb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="flex items-center gap-2 text-lg font-bold text-[#4d5a30]">
-                            <FaUser className="text-[#6f7c45]" /> {user.full_name}
-                          </p>
-                          <p className="flex items-center gap-2 text-sm text-[#73814f] mt-1">
-                            <FaEnvelope className="text-[#b2b998]" /> {user.email}
-                          </p>
-                          <p className="flex items-center gap-2 text-sm text-[#73814f]">
-                            <FaPhone className="text-[#b2b998]" /> {user.phone}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {user.role} — {user.status}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            Signed up on {formatDate(signup.created_at || "")}
-                          </p>
-                        </div>
-
-                        <div className="mt-4 sm:mt-0 flex flex-col gap-2 items-start sm:items-end">
-                          <button
-                            type="button"
-                            onClick={() => removeSignup(signup.id)}
-                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 text-sm rounded-full font-semibold"
-                            aria-label={`Remove ${user.full_name} from event`}
-                            title={`Remove ${user.full_name} from event`}
-                          >
-                            Remove User
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            <button
+              type="button"
+              onClick={() => copyField("phone")}
+              className="bg-[#8a9663] hover:bg-[#7a8757] text-white px-4 py-2 rounded-full font-semibold flex items-center gap-2 transition-colors"
+              aria-label="Copy all user phone numbers to clipboard"
+              title="Copy all user phone numbers to clipboard"
+            >
+              <FaPhone /> Copy Phones
+            </button>
           </div>
-        </div>
-      )}
+        )}
+
+        {loadingUsers ? (
+          <div className="text-center py-8">
+            <p className="text-[#c27d50] text-lg font-medium">Loading users...</p>
+          </div>
+        ) : signedUpUsers.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-[#c27d50] text-lg font-medium italic">No users signed up yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {signedUpUsers.map((signup) => {
+              const user = signup.user;
+              if (!user) return null;
+              return (
+                <motion.div
+                  key={signup.id}
+                  className="p-4 rounded-xl bg-white/50 border border-[#cdd1bc]/30 shadow-sm"
+                  variants={userCardVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-2">
+                      <p className="flex items-center gap-2 text-lg font-bold text-[#6b7547]">
+                        <FaUser className="text-[#8a9663]" /> {user.full_name}
+                      </p>
+                      <p className="flex items-center gap-2 text-sm text-[#c27d50] font-medium">
+                        <FaEnvelope className="text-[#8a9663]" /> {user.email}
+                      </p>
+                      <p className="flex items-center gap-2 text-sm text-[#c27d50] font-medium">
+                        <FaPhone className="text-[#8a9663]" /> {user.phone}
+                      </p>
+                      <p className="text-xs text-[#6b7547]/70 font-medium">
+                        {user.role} — {user.status}
+                      </p>
+                      <p className="text-xs text-[#6b7547]/50">
+                        Signed up on {formatDate(signup.created_at || "")}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 sm:mt-0 flex flex-col gap-2 items-start sm:items-end">
+                      <button
+                        type="button"
+                        onClick={() => removeSignup(signup.id)}
+                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 text-sm rounded-full font-semibold transition-colors"
+                        aria-label={`Remove ${user.full_name} from event`}
+                        title={`Remove ${user.full_name} from event`}
+                      >
+                        Remove User
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </Modal>
       <div className="w-full flex justify-center mt-4">
         <button
+          type="button"
           onClick={clearOldData}
           disabled={cleaning}
           className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-full text-white font-semibold"
@@ -361,84 +345,14 @@ const ManageEventsTab = ({ events, startEditEvent, deleteEvent }: ManageEventsTa
       </div>
 
       {/* Volunteer Hours Modal */}
-      {showHoursModal && hoursEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-80 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#cdd1bc] p-8">
-            <button
-              type="button"
-              onClick={() => setShowHoursModal(false)}
-              className="absolute top-4 right-6 text-2xl text-gray-600 hover:text-black font-bold"
-              aria-label="Close volunteer hours modal"
-              title="Close volunteer hours modal"
-            >
-              ×
-            </button>
-            <h2 className="text-2xl font-bold text-[#49682d] mb-4">
-              Add Volunteer Hours for {hoursEvent.title}
-            </h2>
-            {hoursUsers.length === 0 ? (
-              <p className="text-gray-600 italic">No approved users for this event.</p>
-            ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSaveVolunteerHours();
-                }}
-              >
-                <div className="mb-6 flex items-center gap-4">
-                  <label htmlFor="all-hours" className="font-semibold">
-                    Set hours for all attendees:
-                  </label>
-                  <input
-                    id="all-hours"
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    className="border rounded px-2 py-1 w-24"
-                    placeholder="Hours"
-                    onChange={(e) => handleSetAllHours(e.target.value)}
-                    aria-label="Set hours for all attendees"
-                    title="Set the same number of hours for all attendees"
-                  />
-                  <span className="text-gray-500 text-sm">hours</span>
-                </div>
-                <div className="space-y-4 mb-6">
-                  {hoursUsers.map((user) => (
-                    <div key={user.id} className="flex items-center gap-4">
-                      <label htmlFor={`hours-${user.id}`} className="w-40 font-semibold">
-                        {user.full_name}
-                      </label>
-                      <input
-                        id={`hours-${user.id}`}
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        className="border rounded px-2 py-1 w-24"
-                        placeholder="Hours"
-                        value={hoursData[user.id] || ""}
-                        onChange={(e) => handleHoursChange(user.id, e.target.value)}
-                        required
-                        aria-label={`Hours for ${user.full_name}`}
-                        title={`Enter volunteer hours for ${user.full_name}`}
-                      />
-                      <span className="text-gray-500 text-sm">hours</span>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="submit"
-                  className="bg-green-700 hover:bg-green-800 text-white px-6 py-2 rounded-full font-semibold"
-                  disabled={savingHours}
-                  aria-label="Save volunteer hours"
-                  title="Save volunteer hours for all users"
-                >
-                  {savingHours ? "Saving..." : "Save Hours"}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      <VolunteerHoursModal
+        isOpen={showHoursModal}
+        onClose={() => setShowHoursModal(false)}
+        event={hoursEvent}
+        users={hoursUsers}
+        onSave={handleSaveVolunteerHours}
+        isLoading={savingHours}
+      />
     </>
   );
 };
