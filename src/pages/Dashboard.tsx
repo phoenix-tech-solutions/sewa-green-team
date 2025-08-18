@@ -56,108 +56,108 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Wait for auth to be ready
-      if (authLoading) return;
-
-      // If no user, let the AuthRedirect handle navigation
-      if (!authUser) return;
-
-      const { data: userInfo, error: userError } = await supabase
-        .from("users")
-        .select("status, full_name, role, id, email, phone, lead_id, email_confirmed")
-        .eq("id", authUser.id)
-        .single();
-
-      if (userError || !userInfo) return navigate("/get-involved?login=true");
-      if (userInfo.status !== "APPROVED") return navigate("/not-approved");
-      setUserData(userInfo as User);
-
-      // Get all files once to avoid repeated API calls
       try {
-        // Get all events
-        const { data: eventData, error: eventError } = await supabase
-          .from("events")
-          .select("*")
-          .order("date", { ascending: true });
+        if (authLoading) return;
 
-        if (eventError) throw eventError;
+        if (!authUser) return;
 
-        if (!eventData || eventData.length === 0) {
-          setEvents([]);
-          return;
+        const { data: userInfo, error: userError } = await supabase
+          .from("users")
+          .select("status, full_name, role, id, email, phone, lead_id, email_confirmed")
+          .eq("id", authUser.id)
+          .single();
+
+        if (userError || !userInfo) {
+          setLoading(false);
+          return navigate("/get-involved?login=true");
         }
+        if (userInfo.status !== "APPROVED") {
+          setLoading(false);
+          return navigate("/not-approved");
+        }
+        setUserData(userInfo as User);
 
-        // Get all images from storage
-        const { data: allImages, error: imageError } = await supabase.storage
-          .from("events")
-          .list("images", { limit: 1000 });
+        try {
+          const { data: eventData, error: eventError } = await supabase
+            .from("events")
+            .select("*")
+            .order("date", { ascending: true });
 
-        if (imageError) throw imageError;
+          if (eventError) throw eventError;
 
-        // Create image map for efficient lookup
-        const imageMap = new Map(allImages.map((image) => [image.id, image]));
+          if (!eventData || eventData.length === 0) {
+            setEvents([]);
+          } else {
+            const { data: allImages, error: imageError } = await supabase.storage
+              .from("events")
+              .list("images", { limit: 1000 });
 
-        // Merge events with their corresponding images
-        const eventsWithImages = eventData.map((event) => {
-          if (!event.image_id || !imageMap.has(event.image_id)) {
-            return {
-              ...event,
-              image: null,
-              imageUrl: null,
-            };
+            if (imageError) throw imageError;
+
+            const imageMap = new Map(allImages.map((image) => [image.id, image]));
+
+            const eventsWithImages = eventData.map((event) => {
+              if (!event.image_id || !imageMap.has(event.image_id)) {
+                return {
+                  ...event,
+                  image: null,
+                  imageUrl: null,
+                };
+              }
+
+              const image = imageMap.get(event.image_id) || null;
+              const {
+                data: { publicUrl },
+              } = supabase.storage.from("events/images").getPublicUrl(image!.name);
+
+              return {
+                ...event,
+                image,
+                imageUrl: publicUrl,
+              };
+            });
+
+            // console.log("Events with images:", eventsWithImages);
+            setEvents(eventsWithImages || []);
           }
-
-          const image = imageMap.get(event.image_id) || null;
-          const {
-            data: { publicUrl },
-          } = supabase.storage.from("events/images").getPublicUrl(image!.name);
-
-          return {
-            ...event,
-            image,
-            imageUrl: publicUrl,
-          };
-        });
-
-        // console.log("Events with images:", eventsWithImages);
-        setEvents(eventsWithImages || []);
-      } catch (error) {
-        console.error("Error fetching events with images:", error);
-        setEvents([]);
-      }
-
-      const { data: signups } = await supabase
-        .from("event_signups")
-        .select("*")
-        .eq("user_id", authUser.id);
-
-      const signupMap: Record<string, EventSignup> = {};
-      (signups || []).forEach((su) => {
-        if (su.event_id) {
-          signupMap[su.event_id] = su;
+        } catch (error) {
+          console.error("Error fetching events with images:", error);
+          setEvents([]);
         }
-      });
-      setUserSignups(signupMap);
 
-      // Fetch volunteer hours
-      const { data: hoursData } = await supabase
-        .from("volunteer_hours")
-        .select("id, user_id, event_id, hours, event:events!inner(id, title, date, time)")
-        .eq("user_id", authUser.id);
-      setVolunteerHours((hoursData || []) as unknown as VolunteerHoursWithEvent[]);
-      setTotalHours((hoursData || []).reduce((sum, h) => sum + (h.hours || 0), 0));
+        const { data: signups } = await supabase
+          .from("event_signups")
+          .select("*")
+          .eq("user_id", authUser.id);
 
-      // Aggregate for graph
-      if (hoursData) {
-        setGraphData(aggregateHours(hoursData as unknown as VolunteerHoursWithEvent[], "month"));
+        const signupMap: Record<string, EventSignup> = {};
+        (signups || []).forEach((su) => {
+          if (su.event_id) {
+            signupMap[su.event_id] = su;
+          }
+        });
+        setUserSignups(signupMap);
+
+        const { data: hoursData } = await supabase
+          .from("volunteer_hours")
+          .select("id, user_id, event_id, hours, event:events!inner(id, title, date, time)")
+          .eq("user_id", authUser.id);
+        setVolunteerHours((hoursData || []) as unknown as VolunteerHoursWithEvent[]);
+        setTotalHours((hoursData || []).reduce((sum, h) => sum + (h.hours || 0), 0));
+
+        if (hoursData) {
+          setGraphData(aggregateHours(hoursData as unknown as VolunteerHoursWithEvent[], "month"));
+        }
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Error in fetchData:", error);
+        setLoading(false);
       }
-
-      setLoading(false);
     };
     fetchData();
   }, [authUser, authLoading, navigate]);
 
-  // Update graph when period or data changes
   useEffect(() => {
     setGraphData(aggregateHours(volunteerHours, graphPeriod));
   }, [volunteerHours, graphPeriod]);
@@ -239,7 +239,7 @@ const Dashboard = () => {
   const upcomingEvents = events.filter((ev) => ev.date >= todayStr);
   const pastEvents = events.filter((ev) => ev.date < todayStr);
 
-  if (loading)
+  if (loading || authLoading)
     return <div className="py-32 text-center text-xl text-[#4d5640]">Loading dashboard...</div>;
 
   return (
