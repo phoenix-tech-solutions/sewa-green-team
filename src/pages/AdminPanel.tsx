@@ -7,10 +7,7 @@ import AllUsersTab from "~/components/admin/AllUsersTab";
 import CreateEventTab from "~/components/admin/CreateEventTab";
 import ManageEventsTab from "~/components/admin/ManageEventsTab";
 import WebsiteDetailsTab from "~/components/admin/WebsiteDetailsTab";
-import { useDeletePastEventPDFs } from "~/hooks/useDeletePastEventPDFs";
-// import { useDeletePastEventImages } from "~/hooks/useDeletePastEventImages";
 import type { User, Event, EventFormData, UserWithStudentInfo } from "~/types";
-// import type { FileObject } from "@supabase/storage-js";
 import { useAuth } from "../context/auth/AuthContext";
 
 const tabs = ["Pending Users", "All Users", "Create Event", "Manage Events", "Website Details"];
@@ -26,7 +23,6 @@ const AdminPanel = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  // const [imageMap, setImageMap] = useState<Map<string, FileObject>>(new Map());
   const [userRoleFilter, setUserRoleFilter] = useState("ALL");
   const [pendingRoleFilter, setPendingRoleFilter] = useState("ALL");
   const [userStatusFilter, setUserStatusFilter] = useState("ALL");
@@ -39,7 +35,8 @@ const AdminPanel = () => {
     time: "", // new time field
     location: "",
     waiver_required: false,
-    waiver_url: "",
+    waiver_id: undefined,
+    image_id: undefined,
   });
 
   const navigate = useNavigate();
@@ -161,8 +158,8 @@ const AdminPanel = () => {
     e.preventDefault();
     const eventId = eventForm.id ? String(eventForm.id) : "";
     let image_id = eventForm.image_id || "";
+    let waiver_id = eventForm.waiver_id || "";
     const formattedDate = eventForm.date ? eventForm.date.split("T")[0] : "";
-    let waiver_url = eventForm.waiver_url || "";
     const now = new Date().toISOString().split("T")[0];
     if (eventId) {
       // Editing an existing event
@@ -172,19 +169,21 @@ const AdminPanel = () => {
         return;
       }
     }
-    if (eventForm.waiver_required && !waiverFile && !waiver_url) {
+    if (eventForm.waiver_required && !waiverFile && !waiver_id) {
       alert("You must upload a waiver PDF for this event.");
       return;
     }
     if (eventForm.waiver_required && waiverFile) {
-      // Upload to Supabase Storage
-      const fileName = `${Date.now()}_${waiverFile.name}`;
-      const { error } = await supabase.storage
-        .from("waivers")
-        .upload(fileName, waiverFile, { upsert: true });
+      // Upload waiver to Supabase Storage (events/waivers bucket)
+      const fileExt = waiverFile.name.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}.${fileExt}`;
+      const { data, error } = await supabase.storage
+        .from("events")
+        .upload(`waivers/${fileName}`, waiverFile, { upsert: true });
       if (error) return alert("Failed to upload waiver PDF: " + error.message);
-      const { data: publicUrlData } = supabase.storage.from("waivers").getPublicUrl(fileName);
-      waiver_url = publicUrlData.publicUrl;
+
+      // Use the file ID from the uploaded file
+      waiver_id = data.id;
     }
 
     if (imageFile) {
@@ -207,8 +206,8 @@ const AdminPanel = () => {
       time: eventForm.time,
       location: eventForm.location,
       waiver_required: eventForm.waiver_required,
-      waiver_url: eventForm.waiver_required ? waiver_url : "",
-      image_id,
+      waiver_id: eventForm.waiver_required ? waiver_id || null : null,
+      image_id: image_id || null,
     };
 
     if (eventId) {
@@ -232,7 +231,8 @@ const AdminPanel = () => {
       time: "",
       location: "",
       waiver_required: false,
-      waiver_url: "",
+      waiver_id: undefined,
+      image_id: undefined,
     });
     await fetchData();
     setActiveTab("Manage Events");
@@ -256,7 +256,8 @@ const AdminPanel = () => {
       time: event.time || "",
       location: event.location,
       waiver_required: event.waiver_required,
-      waiver_url: event.waiver_url || "",
+      waiver_id: event.waiver_id || undefined,
+      image_id: event.image_id || undefined,
     });
     setActiveTab("Create Event");
   };
@@ -278,72 +279,6 @@ const AdminPanel = () => {
 
     return list;
   };
-
-  // --- Automated deletion of PDFs for past events ---
-  const deletePastEventPDFs = useDeletePastEventPDFs(
-    "waivers",
-    async () =>
-      (events || []).filter((ev) => {
-        // Only events with a waiver_url and a date in the past
-        return ev.waiver_required && ev.waiver_url && new Date(ev.date) < new Date();
-      }),
-    (event) => {
-      try {
-        // Supabase public URL: .../storage/v1/object/public/waivers/<file>
-        // We want the path relative to the bucket, e.g. '<file>'
-        if (!event.waiver_url) return "";
-        const url = new URL(event.waiver_url);
-        const match = url.pathname.match(/waivers\/(.+)$/);
-        if (match && match[1]) {
-          return match[1];
-        }
-      } catch (e) {
-        console.error("Failed to parse waiver_url:", event.waiver_url, e);
-      }
-      return "";
-    },
-  );
-
-  // const deletePastEventImages = useDeletePastEventImages(
-  //   () =>
-  //     events
-  //       .filter((event) => new Date(event.date) < new Date() && event.image_id)
-  //       .map((event) => {
-  //         const imageId = event.image_id;
-  //         if (!imageId) {
-  //           return {
-  //             ...event,
-  //             image: null,
-  //             imageUrl: null,
-  //           };
-  //         }
-
-  //         const image = imageMap.get(imageId) || null;
-  //         const imageUrl = image
-  //           ? supabase.storage.from("events/images").getPublicUrl(image.name).data.publicUrl
-  //           : null;
-
-  //         return {
-  //           ...event,
-  //           image,
-  //           imageUrl,
-  //         };
-  //       }) || [],
-  //   (event) =>
-  //     event.imageUrl
-  //       ? event.imageUrl?.substring(`${supabaseUrl}/storage/v1/object/public/events/`.length)
-  //       : null,
-  // );
-
-  useEffect(() => {
-    if (events.length > 0) {
-      deletePastEventPDFs().then(() => {
-        // Optionally, you can refresh events here if needed
-      });
-      // deletePastEventImages();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events]);
 
   if (loading || authLoading)
     return <div className="text-center py-20 text-lg">Loading admin panel...</div>;

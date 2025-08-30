@@ -18,7 +18,7 @@ import type {
   VolunteerHoursWithEvent,
   GraphPeriod,
   ChartDataPoint,
-  EventWithImageUrl,
+  EventWithFiles,
 } from "~/types";
 import { X, Calendar, Clock, MapPin, FileText } from "lucide-react";
 import type { EventModalProps } from "~/types";
@@ -27,10 +27,10 @@ const Dashboard = () => {
   const { user: authUser, signOut, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<User | null>(null);
-  const [events, setEvents] = useState<EventWithImageUrl[]>([]);
+  const [events, setEvents] = useState<EventWithFiles[]>([]);
   const [userSignups, setUserSignups] = useState<Record<string, EventSignup>>({});
   const [signupLoading, setSignupLoading] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<EventWithImageUrl | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventWithFiles | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
   const [volunteerHours, setVolunteerHours] = useState<VolunteerHoursWithEvent[]>([]);
   const [totalHours, setTotalHours] = useState(0);
@@ -87,40 +87,55 @@ const Dashboard = () => {
           return;
         }
 
-        // Get all images from storage
-        const { data: allImages, error: imageError } = await supabase.storage
-          .from("events")
-          .list("images", { limit: 1000 });
+        // Get all images and waivers from storage
+        const [imagesResult, waiversResult] = await Promise.all([
+          supabase.storage.from("events").list("images", { limit: 1000 }),
+          supabase.storage.from("events").list("waivers", { limit: 1000 }),
+        ]);
 
-        if (imageError) throw imageError;
+        if (imagesResult.error) throw imagesResult.error;
+        if (waiversResult.error) throw waiversResult.error;
 
-        // Create image map for efficient lookup
-        const imageMap = new Map(allImages.map((image) => [image.id, image]));
+        // Create maps for efficient lookup
+        const imageMap = new Map(imagesResult.data.map((image) => [image.id, image]));
+        const waiverMap = new Map(waiversResult.data.map((waiver) => [waiver.id, waiver]));
 
-        // Merge events with their corresponding images
-        const eventsWithImages = eventData.map((event) => {
-          if (!event.image_id || !imageMap.has(event.image_id)) {
-            return {
-              ...event,
-              image: null,
-              imageUrl: null,
-            };
+        // Merge events with their corresponding images and waivers
+        const eventsWithFiles = eventData.map((event) => {
+          let image = null;
+          let imageUrl = null;
+          let waiver = null;
+          let waiverUrl = null;
+
+          // Handle images
+          if (event.image_id && imageMap.has(event.image_id)) {
+            image = imageMap.get(event.image_id) || null;
+            const {
+              data: { publicUrl },
+            } = supabase.storage.from("events").getPublicUrl(`images/${image!.name}`);
+            imageUrl = publicUrl;
           }
 
-          const image = imageMap.get(event.image_id) || null;
-          const {
-            data: { publicUrl },
-          } = supabase.storage.from("events/images").getPublicUrl(image!.name);
+          // Handle waivers
+          if (event.waiver_id && waiverMap.has(event.waiver_id)) {
+            waiver = waiverMap.get(event.waiver_id) || null;
+            const {
+              data: { publicUrl },
+            } = supabase.storage.from("events").getPublicUrl(`waivers/${waiver!.name}`);
+            waiverUrl = publicUrl;
+          }
 
           return {
             ...event,
             image,
-            imageUrl: publicUrl,
+            imageUrl,
+            waiver,
+            waiverUrl,
           };
         });
 
-        // console.log("Events with images:", eventsWithImages);
-        setEvents(eventsWithImages || []);
+        // console.log("Events with files:", eventsWithFiles);
+        setEvents(eventsWithFiles || []);
       } catch (error) {
         console.error("Error fetching events with images:", error);
         setEvents([]);
@@ -341,7 +356,7 @@ const Dashboard = () => {
                         {formatDate(event.date)} {event.time && `at ${event.time}`}
                       </p>
                       <p className="text-sm text-[#6b7f46]">{event.location}</p>
-                      {event.waiver_required && event.waiver_url && event.date >= todayStr && (
+                      {event.waiver_required && event.waiver_id && event.date >= todayStr && (
                         <>
                           <p className="text-xs mt-1 px-3 py-1 bg-red-100 text-red-700 rounded-full font-semibold w-fit">
                             Waiver Required
@@ -349,7 +364,7 @@ const Dashboard = () => {
                           <p className="text-xs mt-1 text-red-700 font-semibold">
                             This event requires a signed waiver.{" "}
                             <a
-                              href={event.waiver_url}
+                              href={event.waiverUrl || undefined}
                               download
                               className="underline text-blue-700"
                               aria-label={`Download waiver PDF for ${event.title}`}
@@ -542,7 +557,7 @@ const EventModal = ({ selectedEvent, setShowEventModal, formatDate }: EventModal
                   Waiver Required: {selectedEvent.waiver_required ? "Yes" : "No"}
                 </p>
 
-                {selectedEvent.waiver_required && selectedEvent.waiver_url && isUpcomingEvent && (
+                {selectedEvent.waiver_required && selectedEvent.waiverUrl && isUpcomingEvent && (
                   <div className="mt-2 p-3 bg-red-50 rounded-lg border border-red-200">
                     <p className="text-sm text-red-800 font-medium mb-2">⚠️ Waiver Required</p>
                     <p className="text-sm text-red-700 mb-2">
@@ -550,7 +565,7 @@ const EventModal = ({ selectedEvent, setShowEventModal, formatDate }: EventModal
                       with you.
                     </p>
                     <a
-                      href={selectedEvent.waiver_url}
+                      href={selectedEvent.waiverUrl}
                       download
                       className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:text-blue-800 underline"
                     >
