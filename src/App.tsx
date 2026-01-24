@@ -13,6 +13,7 @@ import AdminPanel from "~/pages/AdminPanel";
 import NotAllowed from "~/pages/NotAllowed";
 import { NavbarProvider } from "~/context/navbar/NavbarProvider";
 import { AuthProvider } from "~/context/auth/AuthProvider";
+import { Analytics } from "@vercel/analytics/next";
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
           </div>
         </NavbarProvider>
       </AuthProvider>
+      <Analytics />
     </Router>
   );
 }

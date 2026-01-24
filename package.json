@@ -17,6 +17,7 @@
     "@supabase/storage-js": "^2.10.4",
     "@supabase/supabase-js": "^2.50.0",
     "@tailwindcss/vite": "^4.1.10",
+    "@vercel/analytics": "^1.6.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.17.3",
     "howler": "^2.2.4",
